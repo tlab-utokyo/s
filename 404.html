@@ -1,32 +1,37 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>schedule-poll</title>
+<title>Redirecting...</title>
 <script>
-(function () {
-  // ━━━ ここだけ書き換え ━━━
-  var GAS = 'https://script.google.com/macros/s/YOUR_DEPLOY_ID/exec';
-  // ━━━━━━━━━━━━━━━━━━━━━
+(function(){
+  // tlab-utokyo.github.io/s/SLUG            → GAS?action=poll&id=SLUG
+  // tlab-utokyo.github.io/s/SLUG/results    → GAS?action=results&id=SLUG
+  // tlab-utokyo.github.io/s/SLUG/admin/TOK  → GAS?action=admin&id=SLUG&token=TOK
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbyEfDATdY_KqMV9fUGMebOwzIPskjRWwO7v8tnNipQYMYw37WatmKW9_kbCYhTbMxLl/exec';
 
-  // パス例:
-  //   /s/Xk9mAbCd            → ?action=poll&id=Xk9mAbCd
-  //   /s/Xk9mAbCd/results    → ?action=results&id=Xk9mAbCd
-  //   /s/Xk9mAbCd/admin/TOK  → ?action=admin&id=Xk9mAbCd&token=TOK
+  var path = location.pathname.replace(/^\/s\/?/, '').replace(/\/$/, '');
+  if (!path) { location.href = '/s/'; return; }
 
-  var parts = location.pathname.replace(/^\/s\//, '').replace(/\/$/, '').split('/');
+  var parts = path.split('/');
   var slug = parts[0];
-
-  if (!slug) { location.replace(GAS); return; }
-
   var url;
-  if (parts[1] === 'admin' && parts[2]) {
-    url = GAS + '?action=admin&id=' + slug + '&token=' + parts[2];
+
+  if (parts.length === 1) {
+    // /s/SLUG → poll
+    url = GAS_URL + '?action=poll&id=' + encodeURIComponent(slug);
   } else if (parts[1] === 'results') {
-    url = GAS + '?action=results&id=' + slug;
+    // /s/SLUG/results
+    url = GAS_URL + '?action=results&id=' + encodeURIComponent(slug);
+  } else if (parts[1] === 'admin' && parts[2]) {
+    // /s/SLUG/admin/TOKEN
+    url = GAS_URL + '?action=admin&id=' + encodeURIComponent(slug) + '&token=' + encodeURIComponent(parts[2]);
+  } else if (parts[1] === 'edit' && parts[2]) {
+    // /s/SLUG/edit/TOKEN → poll with edit token
+    url = GAS_URL + '?action=poll&id=' + encodeURIComponent(slug) + '&edit=' + encodeURIComponent(parts[2]);
   } else {
-    url = GAS + '?action=poll&id=' + slug;
+    // fallback
+    url = GAS_URL + '?action=poll&id=' + encodeURIComponent(slug);
   }
 
   location.replace(url);
@@ -34,8 +39,6 @@
 </script>
 </head>
 <body>
-<p style="font-family:sans-serif;text-align:center;margin-top:40vh;color:#888">
-  リダイレクト中…
-</p>
+<p>Redirecting... If not redirected, <a id="link" href="#">click here</a>.</p>
 </body>
 </html>

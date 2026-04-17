@@ -30,14 +30,11 @@
     },
 
     // --- 汎用 URL shortener (任意の長URL → /s/url/SLUG) ---
-    // lookup:true の場合、GAS を直接開かず fetch で JSON を取得してから location.replace
-    // （GAS iframe サンドボックス問題を回避）
+    // csv モード: Spreadsheet の公開 CSV を直接 fetch して slug → longUrl 検索
+    // GAS コールドスタート (~10秒) を避けるための高速化経路
+    // Spreadsheet は「リンクを知っている全員: 閲覧者」に共有されている必要あり
     url: {
-      url: 'https://script.google.com/macros/s/AKfycbwdnC8CPZ7Np0X1j59OScmuEkdHZj1gn2xGrTlL4NCqGPOTsEY9EeoDLMBXJPRymVZF/exec',
-      lookup: true,
-      routes: [
-        { pattern: /^(.+)$/, build: function(m){ return '?k='+e(m[1]); } }
-      ]
+      csv: 'https://docs.google.com/spreadsheets/d/1xP2YyaoxEM5QC0Auj3G6_3HNeHW9FYATCk-ESqs0L2k/gviz/tq?tqx=out:csv&sheet=mappings'
     }
   };
 
@@ -60,7 +57,33 @@
 
   if (!app || !subpath) { location.href = '/s/'; return; }
 
-  // ルートマッチング
+  function showError(title, msg) {
+    document.body.innerHTML =
+      '<div style="font-family:-apple-system,sans-serif;max-width:480px;margin:3em auto;padding:1em">' +
+      '<h1>' + title + '</h1><p>' + msg + '</p></div>';
+  }
+
+  // csv モード: Spreadsheet 公開CSV を fetch して slug → longUrl で検索
+  if (app.csv) {
+    fetch(app.csv)
+      .then(function(r){ if (!r.ok) throw new Error('CSV fetch failed: ' + r.status); return r.text(); })
+      .then(function(csv){
+        var rows = parseCSV(csv);
+        for (var i = 1; i < rows.length; i++) {
+          if (rows[i][0] === subpath) {
+            location.replace(rows[i][1]);
+            return;
+          }
+        }
+        showError('Not Found', 'Short URL key "<code>' + escapeHtml(subpath) + '</code>" is not registered.');
+      })
+      .catch(function(err){
+        showError('Error', (err && err.message) ? err.message : String(err));
+      });
+    return;
+  }
+
+  // routes ベース: パスから GAS クエリを組み立てて navigate
   var url = null;
   for (var i = 0; i < app.routes.length; i++) {
     var m = subpath.match(app.routes[i].pattern);
@@ -69,35 +92,34 @@
       break;
     }
   }
-
-  // どのルートにもマッチしなければ fallback (最初の部分を id として渡す)
-  if (!url) {
-    url = app.url + '?id=' + e(subpath);
-  }
-
-  // lookup モード: GAS から JSON を fetch → longUrl を取り出して直接リダイレクト
-  // (GAS の iframe サンドボックス問題を回避するため)
-  if (app.lookup) {
-    fetch(url)
-      .then(function(r){ return r.json(); })
-      .then(function(d){
-        if (d && d.ok && d.longUrl) {
-          location.replace(d.longUrl);
-        } else {
-          document.body.innerHTML =
-            '<div style="font-family:-apple-system,sans-serif;max-width:480px;margin:3em auto;padding:1em">' +
-            '<h1>Not Found</h1><p>Short URL key not registered.</p></div>';
-        }
-      })
-      .catch(function(err){
-        document.body.innerHTML =
-          '<div style="font-family:-apple-system,sans-serif;max-width:480px;margin:3em auto;padding:1em">' +
-          '<h1>Error</h1><p>' + (err && err.message ? err.message : String(err)) + '</p></div>';
-      });
-    return;
-  }
+  if (!url) url = app.url + '?id=' + e(subpath);
 
   location.replace(url);
+
+  // -------- CSV parser (RFC 4180 準拠、ダブルクォート・改行対応) --------
+  function parseCSV(text) {
+    var rows = [], row = [], cell = '', quoted = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text.charAt(i);
+      if (quoted) {
+        if (c === '"') {
+          if (text.charAt(i+1) === '"') { cell += '"'; i++; }
+          else { quoted = false; }
+        } else { cell += c; }
+      } else {
+        if (c === '"') quoted = true;
+        else if (c === ',') { row.push(cell); cell = ''; }
+        else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+        else if (c !== '\r') cell += c;
+      }
+    }
+    if (cell.length || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
 })();
 </script>
 </head>

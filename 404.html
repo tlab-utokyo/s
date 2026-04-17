@@ -27,22 +27,15 @@
         { pattern: /^([^\/]+)\/results$/,       build: function(m){ return '?action=results&id='+e(m[1]); } },
         { pattern: /^([^\/]+)$/,                build: function(m){ return '?action=poll&id='+e(m[1]); } }
       ]
-    }
+    },
 
-    // --- 他のアプリを追加する例 ---
-    // buy: {
-    //   url: 'https://script.google.com/macros/s/XXXXX/exec',
-    //   routes: [
-    //     { pattern: /^(.+)\/approve$/, build: function(m){ return '?action=approve&id='+e(m[1]); } },
-    //     { pattern: /^(.+)$/,          build: function(m){ return '?id='+e(m[1]); } }
-    //   ]
-    // },
-    // form: {
-    //   url: 'https://script.google.com/macros/s/YYYYY/exec',
-    //   routes: [
-    //     { pattern: /^(.+)$/,  build: function(m){ return '?id='+e(m[1]); } }
-    //   ]
-    // }
+    // --- 汎用 URL shortener (任意の長URL → /s/url/SLUG) ---
+    url: {
+      url: 'https://script.google.com/macros/s/AKfycbwdnC8CPZ7Np0X1j59OScmuEkdHZj1gn2xGrTlL4NCqGPOTsEY9EeoDLMBXJPRymVZF/exec',
+      routes: [
+        { pattern: /^(.+)$/, build: function(m){ return '?k='+e(m[1]); } }
+      ]
+    }
   };
 
   function e(s){ return encodeURIComponent(s); }

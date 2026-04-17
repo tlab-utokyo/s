@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>schedule-poll</title>
+<script>
+(function () {
+  // ━━━ ここだけ書き換え ━━━
+  var GAS = 'https://script.google.com/macros/s/YOUR_DEPLOY_ID/exec';
+  // ━━━━━━━━━━━━━━━━━━━━━
+
+  // パス例:
+  //   /s/Xk9mAbCd            → ?action=poll&id=Xk9mAbCd
+  //   /s/Xk9mAbCd/results    → ?action=results&id=Xk9mAbCd
+  //   /s/Xk9mAbCd/admin/TOK  → ?action=admin&id=Xk9mAbCd&token=TOK
+
+  var parts = location.pathname.replace(/^\/s\//, '').replace(/\/$/, '').split('/');
+  var slug = parts[0];
+
+  if (!slug) { location.replace(GAS); return; }
+
+  var url;
+  if (parts[1] === 'admin' && parts[2]) {
+    url = GAS + '?action=admin&id=' + slug + '&token=' + parts[2];
+  } else if (parts[1] === 'results') {
+    url = GAS + '?action=results&id=' + slug;
+  } else {
+    url = GAS + '?action=poll&id=' + slug;
+  }
+
+  location.replace(url);
+})();
+</script>
+</head>
+<body>
+<p style="font-family:sans-serif;text-align:center;margin-top:40vh;color:#888">
+  リダイレクト中…
+</p>
+</body>
+</html>

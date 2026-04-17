@@ -30,8 +30,11 @@
     },
 
     // --- 汎用 URL shortener (任意の長URL → /s/url/SLUG) ---
+    // lookup:true の場合、GAS を直接開かず fetch で JSON を取得してから location.replace
+    // （GAS iframe サンドボックス問題を回避）
     url: {
       url: 'https://script.google.com/macros/s/AKfycbwdnC8CPZ7Np0X1j59OScmuEkdHZj1gn2xGrTlL4NCqGPOTsEY9EeoDLMBXJPRymVZF/exec',
+      lookup: true,
       routes: [
         { pattern: /^(.+)$/, build: function(m){ return '?k='+e(m[1]); } }
       ]
@@ -70,6 +73,28 @@
   // どのルートにもマッチしなければ fallback (最初の部分を id として渡す)
   if (!url) {
     url = app.url + '?id=' + e(subpath);
+  }
+
+  // lookup モード: GAS から JSON を fetch → longUrl を取り出して直接リダイレクト
+  // (GAS の iframe サンドボックス問題を回避するため)
+  if (app.lookup) {
+    fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d && d.ok && d.longUrl) {
+          location.replace(d.longUrl);
+        } else {
+          document.body.innerHTML =
+            '<div style="font-family:-apple-system,sans-serif;max-width:480px;margin:3em auto;padding:1em">' +
+            '<h1>Not Found</h1><p>Short URL key not registered.</p></div>';
+        }
+      })
+      .catch(function(err){
+        document.body.innerHTML =
+          '<div style="font-family:-apple-system,sans-serif;max-width:480px;margin:3em auto;padding:1em">' +
+          '<h1>Error</h1><p>' + (err && err.message ? err.message : String(err)) + '</p></div>';
+      });
+    return;
   }
 
   location.replace(url);

@@ -5,33 +5,78 @@
 <title>Redirecting...</title>
 <script>
 (function(){
-  // tlab-utokyo.github.io/s/SLUG            → GAS?action=poll&id=SLUG
-  // tlab-utokyo.github.io/s/SLUG/results    → GAS?action=results&id=SLUG
-  // tlab-utokyo.github.io/s/SLUG/admin/TOK  → GAS?action=admin&id=SLUG&token=TOK
-  var GAS_URL = 'https://script.google.com/macros/s/AKfycbyEfDATdY_KqMV9fUGMebOwzIPskjRWwO7v8tnNipQYMYw37WatmKW9_kbCYhTbMxLl/exec';
+  // ============================================================
+  //  アプリ定義
+  //  各アプリの GAS URL と、パス→クエリパラメタ変換ルールを定義
+  //
+  //  URL パターン:
+  //    /s/SLUG/...           → デフォルトアプリ (schedule-poll)
+  //    /s/APP_PREFIX/ARG/... → 指定アプリ
+  //
+  //  routes の各エントリ:
+  //    pattern: パス部分の正規表現 (アプリ prefix 除去後)
+  //    build(match): マッチ結果からクエリ文字列を組み立てる関数
+  // ============================================================
+  var APPS = {
+    // --- schedule-poll (デフォルト: prefix なし) ---
+    _default: {
+      url: 'https://script.google.com/macros/s/AKfycbyEfDATdY_KqMV9fUGMebOwzIPskjRWwO7v8tnNipQYMYw37WatmKW9_kbCYhTbMxLl/exec',
+      routes: [
+        { pattern: /^([^\/]+)\/admin\/(.+)$/,  build: function(m){ return '?action=admin&id='+e(m[1])+'&token='+e(m[2]); } },
+        { pattern: /^([^\/]+)\/edit\/(.+)$/,    build: function(m){ return '?action=poll&id='+e(m[1])+'&edit='+e(m[2]); } },
+        { pattern: /^([^\/]+)\/results$/,       build: function(m){ return '?action=results&id='+e(m[1]); } },
+        { pattern: /^([^\/]+)$/,                build: function(m){ return '?action=poll&id='+e(m[1]); } }
+      ]
+    }
+
+    // --- 他のアプリを追加する例 ---
+    // buy: {
+    //   url: 'https://script.google.com/macros/s/XXXXX/exec',
+    //   routes: [
+    //     { pattern: /^(.+)\/approve$/, build: function(m){ return '?action=approve&id='+e(m[1]); } },
+    //     { pattern: /^(.+)$/,          build: function(m){ return '?id='+e(m[1]); } }
+    //   ]
+    // },
+    // form: {
+    //   url: 'https://script.google.com/macros/s/YYYYY/exec',
+    //   routes: [
+    //     { pattern: /^(.+)$/,  build: function(m){ return '?id='+e(m[1]); } }
+    //   ]
+    // }
+  };
+
+  function e(s){ return encodeURIComponent(s); }
 
   var path = location.pathname.replace(/^\/s\/?/, '').replace(/\/$/, '');
   if (!path) { location.href = '/s/'; return; }
 
   var parts = path.split('/');
-  var slug = parts[0];
-  var url;
 
-  if (parts.length === 1) {
-    // /s/SLUG → poll
-    url = GAS_URL + '?action=poll&id=' + encodeURIComponent(slug);
-  } else if (parts[1] === 'results') {
-    // /s/SLUG/results
-    url = GAS_URL + '?action=results&id=' + encodeURIComponent(slug);
-  } else if (parts[1] === 'admin' && parts[2]) {
-    // /s/SLUG/admin/TOKEN
-    url = GAS_URL + '?action=admin&id=' + encodeURIComponent(slug) + '&token=' + encodeURIComponent(parts[2]);
-  } else if (parts[1] === 'edit' && parts[2]) {
-    // /s/SLUG/edit/TOKEN → poll with edit token
-    url = GAS_URL + '?action=poll&id=' + encodeURIComponent(slug) + '&edit=' + encodeURIComponent(parts[2]);
+  // 先頭がアプリ prefix かどうか判定
+  var app, subpath;
+  if (APPS[parts[0]]) {
+    app = APPS[parts[0]];
+    subpath = parts.slice(1).join('/');
   } else {
-    // fallback
-    url = GAS_URL + '?action=poll&id=' + encodeURIComponent(slug);
+    app = APPS._default;
+    subpath = path;
+  }
+
+  if (!app || !subpath) { location.href = '/s/'; return; }
+
+  // ルートマッチング
+  var url = null;
+  for (var i = 0; i < app.routes.length; i++) {
+    var m = subpath.match(app.routes[i].pattern);
+    if (m) {
+      url = app.url + app.routes[i].build(m);
+      break;
+    }
+  }
+
+  // どのルートにもマッチしなければ fallback (最初の部分を id として渡す)
+  if (!url) {
+    url = app.url + '?id=' + e(subpath);
   }
 
   location.replace(url);
